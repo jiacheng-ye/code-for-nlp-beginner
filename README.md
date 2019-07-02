@@ -54,12 +54,10 @@
 2. 注意用`torchtext`读取`json`文件的方式，及依赖解析数据的读取方式。其实`torchtext`内部有`dataset.nli`模块实现了
 `nli`数据读取方式，但是在代码中我还是用原版的`FIELD`来实现，便于理解其内部的处理流程。
 
-|方法|参数|准确度|
-|-----|-----|------|
-|ESIM|epoch=5; hidden_size = 256; num_layers = 1; bidirectional = True; random embedding|0.629|
-|RNN|epoch=5; hidden_size = 256; num_layers = 1; bidirectional = True; glove_200 embedding|0.633|
-|CNN|epoch=5; num_filters = 200; kernel_sizes = [2, 3, 4]; random embedding|0.654|
-|CNN|epoch=5; num_filters = 200; kernel_sizes = [2, 3, 4]; glove_200 embedding|0.660|
+|embedding|accuracy|paper result|
+|----|------|---|
+|random||-|
+|glove.6B.300d||88.0|
 
 
 # 任务四：基于LSTM+CRF的序列标注

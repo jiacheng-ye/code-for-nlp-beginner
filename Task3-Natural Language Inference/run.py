@@ -14,13 +14,12 @@ EPOCHS = 20
 DROPOUT_RATE = 0.5
 LAYER_NUM = 1
 LEARNING_RATE = 3e-4
-data_path = 'data'
-
+PATIENCE = 5
 EMBEDDING_SIZE = 300
-vectors = None
-# vectors = Vectors('glove.6B.300d.txt', '/home/yjc/embeddings')
+# vectors = None
+vectors = Vectors('glove.6B.300d.txt', '/home/yjc/embeddings')
 freeze = False
-
+data_path = 'data'
 
 def show_example(premise, hypothesis, label, TEXT, LABEL):
     tqdm.write('Label: ' + LABEL.vocab.itos[label])
@@ -33,10 +32,10 @@ def count_parameters(model):
 
 def eval(data_iter, name, epoch=None):
     model.eval()
+    correct_num = 0
+    err_num = 0
+    total_loss = 0
     with torch.no_grad():
-        correct_num = 0
-        err_num = 0
-        total_loss = 0
         for i, batch in enumerate(data_iter):
             premise, premise_lens = batch.premise
             hypothesis, hypothesis_lens = batch.hypothesis
@@ -49,15 +48,18 @@ def eval(data_iter, name, epoch=None):
             correct_num += (predicts == labels).sum().item()
             err_num += (predicts != batch.label).sum().item()
 
+    acc = correct_num / (correct_num + err_num)
     if epoch is not None:
         tqdm.write(
-            "Epoch: %d, %s Acc: %.3f, Loss %.3f" % (epoch + 1, name, correct_num / (correct_num + err_num), total_loss))
+            "Epoch: %d, %s Acc: %.3f, Loss %.3f" % (epoch + 1, name, acc, total_loss))
     else:
         tqdm.write(
-            "%s Acc: %.3f, Loss %.3f" % (name, correct_num / (correct_num + err_num), total_loss))
+            "%s Acc: %.3f, Loss %.3f" % (name, acc, total_loss))
+    return acc
 
-
-def train(train_iter, dev_iter, loss_func, optimizer, epochs):
+def train(train_iter, dev_iter, loss_func, optimizer, epochs, patience=5):
+    best_acc = -1
+    patience_counter = 0
     for epoch in trange(epochs):
         model.train()
         total_loss = 0
@@ -75,7 +77,16 @@ def train(train_iter, dev_iter, loss_func, optimizer, epochs):
             optimizer.step()
         tqdm.write("Epoch: %d, Train Loss: %d" % (epoch + 1, total_loss))
 
-        eval(dev_iter, "Dev", epoch)
+        acc = eval(dev_iter, "Dev", epoch)
+        if acc<best_acc:
+            patience_counter +=1
+        else:
+            best_acc = acc
+            patience_counter = 0
+
+        if patience_counter >= patience:
+            print("-> Early stopping: patience limit reached, stopping...")
+            break
 
 if __name__ == "__main__":
     train_iter, dev_iter, test_iter, TEXT, LABEL, _ = load_iters(BATCH_SIZE, device, data_path, vectors)
@@ -89,5 +100,5 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     loss_func = nn.CrossEntropyLoss()
 
-    train(train_iter, dev_iter, loss_func, optimizer, EPOCHS)
+    train(train_iter, dev_iter, loss_func, optimizer, EPOCHS,PATIENCE)
     eval(test_iter, "Test")

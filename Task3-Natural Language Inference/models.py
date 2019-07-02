@@ -20,6 +20,8 @@ class BiLSTM(nn.Module):
                 nn.init.xavier_normal_(p)
             else:
                 p.data.zero_()
+                # This is the range of indices for our forget gates for each LSTM cell
+                p.data[self.hidden_size // 2: self.hidden_size] = 1
 
     def forward(self, x, lens):
         '''
