@@ -22,6 +22,7 @@ LEARNING_RATE = 0.01
 DECAY_RATE = 0.05
 MOMENTUM = 0.9
 CLIP = 5
+PATIENCE = 5
 # network parameters
 WORD_EMBEDDING_SIZE = 100
 HIDDEN_SIZE = 400  # every LSTM's(forward and backward) hidden size is half of HIDDEN_SIZE
@@ -33,7 +34,9 @@ N_FILTERS = 30  # the output char embedding from CNN
 KERNEL_STEP = 3  # n-gram size of CNN
 
 
-def train(train_iter, dev_iter, optimizer, epochs, clip):
+def train(train_iter, dev_iter, optimizer, epochs, clip, patience):
+    best_acc = -1
+    patience_counter = 0
     for epoch in trange(epochs):
         model.train()
         total_loss = 0
@@ -54,7 +57,16 @@ def train(train_iter, dev_iter, optimizer, epochs, clip):
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
 
-        eval(dev_iter, "Dev", epoch)
+        acc = eval(dev_iter, "Dev", epoch)
+        if acc < best_acc:
+            patience_counter += 1
+        else:
+            best_acc = acc
+            patience_counter = 0
+
+        if patience_counter >= patience:
+            tqdm.write("Early stopping: patience limit reached, stopping...")
+            break
         predict(dev_iter)
 
 def eval(data_iter, name, epoch=None):
@@ -70,13 +82,14 @@ def eval(data_iter, name, epoch=None):
             total_loss += loss.item()
             correct_num += ((predicted_seq == batch.label) * predict_mask).sum().item()
             err_num += ((predicted_seq != batch.label) * predict_mask).sum().item()
+    acc = correct_num / (correct_num + err_num)
     if epoch is not None:
         tqdm.write(
-            "Epoch: %d, %s Acc: %.3f, Loss %.3f" % (epoch + 1, name, correct_num / (correct_num + err_num), total_loss))
+            "Epoch: %d, %s Acc: %.3f, Loss %.3f" % (epoch + 1, name, acc, total_loss))
     else:
         tqdm.write(
-            "%s Acc: %.3f, Loss %.3f" % (name, correct_num / (correct_num + err_num), total_loss))
-
+            "%s Acc: %.3f, Loss %.3f" % (name, acc, total_loss))
+    return acc
 
 def predict(data_iter):
     model.eval()
@@ -115,6 +128,6 @@ if __name__ == "__main__":
                       KERNEL_STEP, N_FILTERS, USE_CHAR, WORD.vocab.vectors, FREEZE).to(device)
 
     optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM)
-    train(train_iter, dev_iter, optimizer, EPOCHS, CLIP)
+    train(train_iter, dev_iter, optimizer, EPOCHS, CLIP, PATIENCE)
     eval(test_iter, "Test")
     predict(test_iter)
