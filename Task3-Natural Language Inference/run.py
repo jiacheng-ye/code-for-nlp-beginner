@@ -13,8 +13,9 @@ HIDDEN_SIZE = 300
 EPOCHS = 20
 DROPOUT_RATE = 0.5
 LAYER_NUM = 1
-LEARNING_RATE = 3e-4
+LEARNING_RATE = 4e-4
 PATIENCE = 5
+CLIP = 10
 EMBEDDING_SIZE = 300
 # vectors = None
 vectors = Vectors('glove.6B.300d.txt', '/home/yjc/embeddings')
@@ -57,7 +58,7 @@ def eval(data_iter, name, epoch=None):
             "%s Acc: %.3f, Loss %.3f" % (name, acc, total_loss))
     return acc
 
-def train(train_iter, dev_iter, loss_func, optimizer, epochs, patience=5):
+def train(train_iter, dev_iter, loss_func, optimizer, epochs, patience=5, clip=5):
     best_acc = -1
     patience_counter = 0
     for epoch in trange(epochs):
@@ -74,6 +75,7 @@ def train(train_iter, dev_iter, loss_func, optimizer, epochs, patience=5):
             loss = loss_func(output, labels)
             total_loss += loss.item()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
             optimizer.step()
         tqdm.write("Epoch: %d, Train Loss: %d" % (epoch + 1, total_loss))
 
@@ -85,7 +87,7 @@ def train(train_iter, dev_iter, loss_func, optimizer, epochs, patience=5):
             patience_counter = 0
 
         if patience_counter >= patience:
-            print("-> Early stopping: patience limit reached, stopping...")
+            tqdm.write("Early stopping: patience limit reached, stopping...")
             break
 
 if __name__ == "__main__":
@@ -100,5 +102,5 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     loss_func = nn.CrossEntropyLoss()
 
-    train(train_iter, dev_iter, loss_func, optimizer, EPOCHS,PATIENCE)
+    train(train_iter, dev_iter, loss_func, optimizer, EPOCHS,PATIENCE, CLIP)
     eval(test_iter, "Test")

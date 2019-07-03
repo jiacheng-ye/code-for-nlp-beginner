@@ -3,8 +3,8 @@ from torchtext.data import Iterator, BucketIterator
 from torchtext import data
 import torch
 
-def load_iters(batch_size=32, device="cpu", data_path='data', vectors=None, parse_field=None):
-    if parse_field is None:
+def load_iters(batch_size=32, device="cpu", data_path='data', vectors=None, use_tree=False):
+    if not use_tree:
         TEXT = data.Field(batch_first=True, include_lengths=True, lower=True)
         LABEL = data.LabelField(batch_first=True)
         TREE = None

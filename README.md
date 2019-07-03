@@ -54,7 +54,7 @@
 2. 注意用`torchtext`读取`json`文件的方式，及依赖解析数据的读取方式。其实`torchtext`内部有`dataset.nli`模块实现了
 `nli`数据读取方式，但是在代码中我还是用原版的`FIELD`来实现，便于理解其内部的处理流程。
 
-test data accuracy: 0.87
+test data accuracy: 0.83
 
 
 # 任务四：基于LSTM+CRF的序列标注
