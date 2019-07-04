@@ -11,8 +11,8 @@ torch.manual_seed(1)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 data_path = "data"
-# vectors = None
-vectors = Vectors('glove.6B.100d.txt', '/home/yjc/embeddings')
+vectors = None
+# vectors = Vectors('glove.6B.100d.txt', '/home/yjc/embeddings')
 FREEZE = False
 BATCH_SIZE = 10
 LOWER_CASE = False
@@ -45,8 +45,8 @@ def train(train_iter, dev_iter, optimizer, epochs, clip, patience):
                 tqdm.write(' '.join([WORD.vocab.itos[i] for i in batch.word[0]]))
                 tqdm.write(' '.join([LABEL.vocab.itos[i] for i in batch.label[0]]))
             model.zero_grad()
-            predict_mask = (batch.word != pad_idx)
-            loss = model(batch.word, batch.char, predict_mask, batch.label)
+            words, lens = batch.word
+            loss = model(words, batch.char, lens, batch.label)
             total_loss += loss.item()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
@@ -76,14 +76,14 @@ def eval(data_iter, name, epoch=None):
         total_preds = 0
         total_correct = 0
         for i, batch in enumerate(data_iter):
-            predict_mask = (batch.word != pad_idx)
-            predicted_seq, _ = model(batch.word, batch.char, predict_mask)  # predicted_seq : (batch_size, seq_len)
-            loss = model(batch.word, batch.char, predict_mask, batch.label)
+            words, lens = batch.word
+            predicted_seq, _ = model(words, batch.char, lens)  # predicted_seq : (batch_size, seq_len)
+            loss = model(words, batch.char, lens, batch.label)
             total_loss += loss.item()
 
-            for ground_truth_id,predicted_id in zip(batch.word, predicted_seq):
-                lab_chunks = set(get_chunks(ground_truth_id, LABEL.vocab.stoi))
-                lab_pred_chunks = set(get_chunks(predicted_id,LABEL.vocab.stoi))
+            for ground_truth_id, predicted_id, len_ in zip(batch.label.numpy(), predicted_seq.numpy(), lens.numpy()):
+                lab_chunks = set(get_chunks(ground_truth_id[:len_], LABEL.vocab.stoi))
+                lab_pred_chunks = set(get_chunks(predicted_id[:len_], LABEL.vocab.stoi))
 
                 # Updating the count variables
                 correct_preds += len(lab_chunks & lab_pred_chunks)
@@ -111,8 +111,8 @@ def predict(data_iter):
         predicted_seqs = []
         for i, batch in enumerate(data_iter):
             orig_text = [' '.join(e.word) for e in data_iter.dataset.examples[i * BATCH_SIZE:(i + 1) * BATCH_SIZE]]
-            predict_mask = (batch.word != pad_idx)
-            predicted_seq, _ = model(batch.word, batch.char, predict_mask)  # predicted_seq : (batch_size, seq_len)
+            words, lens = batch.word
+            predicted_seq, _ = model(words, batch.char, lens)  # predicted_seq : (batch_size, seq_len)
             gold_seqs.extend(batch.label.tolist())
             orig_texts.extend(orig_text)
             predicted_seqs.extend(predicted_seq.tolist())
@@ -139,6 +139,6 @@ if __name__ == "__main__":
                       KERNEL_STEP, N_FILTERS, USE_CHAR, WORD.vocab.vectors, FREEZE).to(device)
 
     optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM)
-    train(train_iter, dev_iter, optimizer, EPOCHS, CLIP, PATIENCE)
+    # train(train_iter, dev_iter, optimizer, EPOCHS, CLIP, PATIENCE)
     eval(test_iter, "Test")
     predict(test_iter)

@@ -50,7 +50,7 @@ def unk_init(x):
 def load_iters(batch_size=32, device="cpu", data_path='data', vectors=None, word2lower=True):
     zero_char_in_word = lambda ex: [re.sub('\d', '0', w) for w in ex]
     zero_char = lambda w: [re.sub('\d', '0', c) for c in w]
-    WORD_TEXT = data.Field(lower=word2lower, batch_first=True,
+    WORD_TEXT = data.Field(lower=word2lower, batch_first=True, include_lengths=True,
                            preprocessing=zero_char_in_word)
     CHAR_NESTING = data.Field(tokenize=list, preprocessing=zero_char)  # process a word in char list
     CHAR_TEXT = data.NestedField(CHAR_NESTING)  #

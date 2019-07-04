@@ -76,9 +76,10 @@ class SoftmaxDecoder(nn.Module):
         output = output.view(batch_size, seq_len, self.label_size)
         return output
 
-    def forward(self, inputs, predict_mask, label_ids=None):
+    def forward(self, inputs, lens, label_ids=None):
         logits = self.forward_model(inputs)
         p = torch.nn.functional.softmax(logits, -1)  # (batch_size, max_seq_len, num_labels)
+        predict_mask = torch.arange(inputs.size(1)).expand(len(lens), inputs.size(1)) < lens.unsqueeze(1)
         if label_ids is not None:
             # cross entropy loss
             p = torch.nn.functional.softmax(logits, -1)  # (batch_size, max_seq_len, num_labels)
@@ -111,7 +112,7 @@ class CRFDecoder(nn.Module):
         output = output.view(batch_size, seq_len, self.label_size)
         return output
 
-    def forward(self, inputs, predict_mask, labels=None):
+    def forward(self, inputs, lens, labels=None):
         '''
         :param inputs:(batch_size, max_seq_len, input_dim)
         :param predict_mask:(batch_size, max_seq_len)
@@ -122,6 +123,7 @@ class CRFDecoder(nn.Module):
         logits = self.forward_model(inputs)  # (batch_size, max_seq_len, num_labels)
         p = torch.nn.functional.softmax(logits, -1)  # (batch_size, max_seq_len, num_labels)
         logits = self.crf.pad_logits(logits)
+        predict_mask = torch.arange(inputs.size(1)).expand(len(lens), inputs.size(1)) < lens.unsqueeze(1)
         if labels is None:
             _, preds = self.crf.viterbi_decode(logits, predict_mask)
             return preds, p
@@ -168,7 +170,7 @@ class NER_Model(nn.Module):
         bias = math.sqrt(6.0 / (self.linear.weight.size(0) + self.linear.weight.size(1)))
         nn.init.uniform_(self.linear.weight, -bias, bias)
 
-    def forward(self, word_ids, char_ids, predict_mask, label_ids=None):
+    def forward(self, word_ids, char_ids, lens, label_ids=None):
         '''
 
         :param word_ids: (batch_size, max_seq_len)
@@ -187,8 +189,7 @@ class NER_Model(nn.Module):
             embed = torch.cat([word_embed, char_embed], -1)
         else:
             embed = word_embed
-        lens = predict_mask.sum(-1)
         x = self.dropout(embed)
         hidden = self.bilstm(x, lens)  # (batch_size, max_seq_len, hidden_size)
         hidden = torch.tanh(self.dropout(hidden))
-        return self.decoder(hidden, predict_mask, label_ids)
+        return self.decoder(hidden, lens, label_ids)
