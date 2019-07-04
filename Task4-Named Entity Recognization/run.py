@@ -41,12 +41,13 @@ def train(train_iter, dev_iter, optimizer, epochs, clip, patience):
         model.train()
         total_loss = 0
         for i, batch in enumerate(tqdm(train_iter)):
-            if i == 0:
-                tqdm.write(' '.join([WORD.vocab.itos[i] for i in batch.word[0]]))
-                tqdm.write(' '.join([LABEL.vocab.itos[i] for i in batch.label[0]]))
-            model.zero_grad()
             words, lens = batch.word
-            loss = model(words, batch.char, lens, batch.label)
+            labels = batch.label
+            if i == 0:
+                tqdm.write(' '.join([WORD.vocab.itos[i] for i in words[0]]))
+                tqdm.write(' '.join([LABEL.vocab.itos[i] for i in labels[0]]))
+            model.zero_grad()
+            loss = model(words, batch.char, lens, labels)
             total_loss += loss.item()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
@@ -77,11 +78,12 @@ def eval(data_iter, name, epoch=None):
         total_correct = 0
         for i, batch in enumerate(data_iter):
             words, lens = batch.word
+            labels = batch.label
             predicted_seq, _ = model(words, batch.char, lens)  # predicted_seq : (batch_size, seq_len)
-            loss = model(words, batch.char, lens, batch.label)
+            loss = model(words, batch.char, lens, labels)
             total_loss += loss.item()
 
-            for ground_truth_id, predicted_id, len_ in zip(batch.label.numpy(), predicted_seq.numpy(), lens.numpy()):
+            for ground_truth_id, predicted_id, len_ in zip(labels.numpy(), predicted_seq.numpy(), lens.numpy()):
                 lab_chunks = set(get_chunks(ground_truth_id[:len_], LABEL.vocab.stoi))
                 lab_pred_chunks = set(get_chunks(predicted_id[:len_], LABEL.vocab.stoi))
 
