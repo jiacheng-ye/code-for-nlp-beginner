@@ -79,7 +79,7 @@ class SoftmaxDecoder(nn.Module):
     def forward(self, inputs, lens, label_ids=None):
         logits = self.forward_model(inputs)
         p = torch.nn.functional.softmax(logits, -1)  # (batch_size, max_seq_len, num_labels)
-        predict_mask = torch.arange(inputs.size(1)).expand(len(lens), inputs.size(1)) < lens.unsqueeze(1)
+        predict_mask = (torch.arange(inputs.size(1)).expand(len(lens), inputs.size(1)) < lens.unsqueeze(1)).to(logits.device)
         if label_ids is not None:
             # cross entropy loss
             p = torch.nn.functional.softmax(logits, -1)  # (batch_size, max_seq_len, num_labels)
@@ -123,7 +123,7 @@ class CRFDecoder(nn.Module):
         logits = self.forward_model(inputs)  # (batch_size, max_seq_len, num_labels)
         p = torch.nn.functional.softmax(logits, -1)  # (batch_size, max_seq_len, num_labels)
         logits = self.crf.pad_logits(logits)
-        predict_mask = torch.arange(inputs.size(1)).expand(len(lens), inputs.size(1)) < lens.unsqueeze(1)
+        predict_mask = (torch.arange(inputs.size(1)).expand(len(lens), inputs.size(1)) < lens.unsqueeze(1)).to(logits.device)
         if labels is None:
             _, preds = self.crf.viterbi_decode(logits, predict_mask)
             return preds, p

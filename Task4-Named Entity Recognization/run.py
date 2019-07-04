@@ -83,7 +83,7 @@ def eval(data_iter, name, epoch=None):
             loss = model(words, batch.char, lens, labels)
             total_loss += loss.item()
 
-            for ground_truth_id, predicted_id, len_ in zip(labels.numpy(), predicted_seq.numpy(), lens.numpy()):
+            for ground_truth_id, predicted_id, len_ in zip(labels.cpu().numpy(), predicted_seq.cpu().numpy(), lens.cpu().numpy()):
                 lab_chunks = set(get_chunks(ground_truth_id[:len_], LABEL.vocab.stoi))
                 lab_pred_chunks = set(get_chunks(predicted_id[:len_], LABEL.vocab.stoi))
 
