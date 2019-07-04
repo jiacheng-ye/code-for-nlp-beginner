@@ -5,7 +5,7 @@ from tqdm import tqdm, trange
 from torchtext.vocab import Vectors
 from models import NER_Model
 import codecs
-from util import load_iters
+from util import load_iters, get_chunks
 
 torch.manual_seed(1)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -67,29 +67,41 @@ def train(train_iter, dev_iter, optimizer, epochs, clip, patience):
         if patience_counter >= patience:
             tqdm.write("Early stopping: patience limit reached, stopping...")
             break
-        predict(dev_iter)
 
 def eval(data_iter, name, epoch=None):
     model.eval()
     with torch.no_grad():
-        correct_num = 0
-        err_num = 0
         total_loss = 0
+        correct_preds = 0
+        total_preds = 0
+        total_correct = 0
         for i, batch in enumerate(data_iter):
             predict_mask = (batch.word != pad_idx)
             predicted_seq, _ = model(batch.word, batch.char, predict_mask)  # predicted_seq : (batch_size, seq_len)
             loss = model(batch.word, batch.char, predict_mask, batch.label)
             total_loss += loss.item()
-            correct_num += ((predicted_seq == batch.label) * predict_mask).sum().item()
-            err_num += ((predicted_seq != batch.label) * predict_mask).sum().item()
-    acc = correct_num / (correct_num + err_num)
+
+            for ground_truth_id,predicted_id in zip(batch.word, predicted_seq):
+                lab_chunks = set(get_chunks(ground_truth_id, LABEL.vocab.stoi))
+                lab_pred_chunks = set(get_chunks(predicted_id,LABEL.vocab.stoi))
+
+                # Updating the count variables
+                correct_preds += len(lab_chunks & lab_pred_chunks)
+                total_preds += len(lab_pred_chunks)
+                total_correct += len(lab_chunks)
+
+        # Calculating the F1-Score
+        p = correct_preds / total_preds
+        r = correct_preds / total_correct
+        micro_F1 = 2 * p * r / (p + r)
+
     if epoch is not None:
         tqdm.write(
-            "Epoch: %d, %s Acc: %.3f, Loss %.3f" % (epoch + 1, name, acc, total_loss))
+            "Epoch: %d, %s Entity Micro F1: %.3f, Loss %.3f" % (epoch + 1, name,micro_F1 , total_loss))
     else:
         tqdm.write(
-            "%s Acc: %.3f, Loss %.3f" % (name, acc, total_loss))
-    return acc
+            "%s Acc: %.3f, Loss %.3f" % (name, micro_F1, total_loss))
+    return micro_F1
 
 def predict(data_iter):
     model.eval()
@@ -104,11 +116,10 @@ def predict(data_iter):
             gold_seqs.extend(batch.label.tolist())
             orig_texts.extend(orig_text)
             predicted_seqs.extend(predicted_seq.tolist())
-        write_predict_labels("predictions.txt", orig_texts, LABEL.vocab.itos, gold_seqs, predicted_seqs)
+        write_predicted_labels("predictions.txt", orig_texts, LABEL.vocab.itos, gold_seqs, predicted_seqs)
 
 
-def write_predict_labels(output_file, orig_text, id2label, gold_seq, predicted_seq):
-    '''Use the output file and conlleval.pl to get entity-level accuracy.'''
+def write_predicted_labels(output_file, orig_text, id2label, gold_seq, predicted_seq):
     with codecs.open(output_file, 'w', encoding='utf-8') as writer:
         for text, predict, gold in zip(orig_text, predicted_seq, gold_seq):
             for token, p_id, g_id in zip(text.split(), predict, gold):

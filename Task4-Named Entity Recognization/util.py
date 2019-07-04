@@ -82,3 +82,78 @@ def load_iters(batch_size=32, device="cpu", data_path='data', vectors=None, word
     return train_iter, dev_iter, test_iter, WORD_TEXT, CHAR_TEXT, LABEL
 
 # load_iters(use_char=True)
+
+def get_chunk_type(tok, idx_to_tag):
+    """
+    The function takes in a chunk ("B-PER") and then splits it into the tag (PER) and its class (B)
+    as defined in BIOES
+
+    Args:
+        tok: id of token, ex 4
+        idx_to_tag: dictionary {4: "B-PER", ...}
+
+    Returns:
+        tuple: "B", "PER"
+
+    """
+
+    tag_name = idx_to_tag[tok]
+    tag_class = tag_name.split('-')[0]
+    tag_type = tag_name.split('-')[-1]
+    return tag_class, tag_type
+
+
+def get_chunks(seq, tags, bioes=True):
+    """Given a sequence of tags, group entities and their position
+    """
+
+    # We assume by default the tags lie outside a named entity
+    default = tags["O"]
+
+    idx_to_tag = {idx: tag for tag, idx in tags.items()}
+
+    chunks = []
+
+    chunk_class, chunk_type, chunk_start = None, None, None
+    for i, tok in enumerate(seq):
+        if tok == default and (chunk_class in (["E", "S"] if bioes else ["B", "I"])):
+            # Add a chunk.
+            chunk = (chunk_type, chunk_start, i)
+            chunks.append(chunk)
+            chunk_class, chunk_type, chunk_start = "O", None, None
+
+        if tok != default:
+            tok_chunk_class, tok_chunk_type = get_chunk_type(tok, idx_to_tag)
+            if chunk_type is None:
+                # Initialize chunk for each entity
+                chunk_class, chunk_type, chunk_start = tok_chunk_class, tok_chunk_type, i
+            else:
+                if bioes:
+                    if chunk_class in ["E", "S"]:
+                        chunk = (chunk_type, chunk_start, i)
+                        chunks.append(chunk)
+                        if tok_chunk_class in ["B", "S"]:
+                            chunk_class, chunk_type, chunk_start = tok_chunk_class, tok_chunk_type, i
+                        else:
+                            chunk_class, chunk_type, chunk_start = None, None, None
+                    elif tok_chunk_type == chunk_type and chunk_class in ["B","I"]:
+                        chunk_class = tok_chunk_class
+                    else:
+                        chunk_class, chunk_type = None, None
+                else:# BIO schema
+                    if tok_chunk_class == "B":
+                        chunk = (chunk_type, chunk_start, i)
+                        chunks.append(chunk)
+                        chunk_class, chunk_type, chunk_start = tok_chunk_class, tok_chunk_type, i
+                    else:
+                        chunk_class, chunk_type = None, None
+
+    if chunk_type is not None:
+        chunk = (chunk_type, chunk_start, len(seq))
+        chunks.append(chunk)
+
+    return chunks
+
+def test_get_chunks():
+    print(get_chunks([4,2,1, 2, 3, 3],
+               {'O':0, "B-PER":1, "I-PER":2, "E-PER":3, "S-PER":4}))
