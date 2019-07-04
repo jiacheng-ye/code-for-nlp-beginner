@@ -11,8 +11,8 @@ torch.manual_seed(1)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 data_path = "data"
-vectors = None
-# vectors = Vectors('glove.6B.100d.txt', '/home/yjc/embeddings')
+# vectors = None
+vectors = Vectors('glove.6B.100d.txt', '/home/yjc/embeddings')
 FREEZE = False
 BATCH_SIZE = 10
 LOWER_CASE = False
@@ -139,6 +139,6 @@ if __name__ == "__main__":
                       KERNEL_STEP, N_FILTERS, USE_CHAR, WORD.vocab.vectors, FREEZE).to(device)
 
     optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM)
-    # train(train_iter, dev_iter, optimizer, EPOCHS, CLIP, PATIENCE)
+    train(train_iter, dev_iter, optimizer, EPOCHS, CLIP, PATIENCE)
     eval(test_iter, "Test")
     predict(test_iter)
