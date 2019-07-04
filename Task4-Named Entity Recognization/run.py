@@ -16,9 +16,9 @@ vectors = Vectors('glove.6B.100d.txt', '/home/yjc/embeddings')
 FREEZE = False
 BATCH_SIZE = 10
 LOWER_CASE = False
-EPOCHS = 100
+EPOCHS = 60
 # SGD parameters
-LEARNING_RATE = 0.01
+LEARNING_RATE = 0.015
 DECAY_RATE = 0.05
 MOMENTUM = 0.9
 CLIP = 5
