@@ -11,12 +11,12 @@ torch.manual_seed(1)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 data_path = "data"
-# vectors = None
-vectors = Vectors('glove.6B.100d.txt', '/home/yjc/embeddings')
+vectors = None
+# vectors = Vectors('glove.6B.100d.txt', '/home/yjc/embeddings')
 FREEZE = False
 BATCH_SIZE = 10
 LOWER_CASE = False
-EPOCHS = 60
+EPOCHS = 100
 # SGD parameters
 LEARNING_RATE = 0.015
 DECAY_RATE = 0.05
@@ -35,9 +35,9 @@ KERNEL_STEP = 3  # n-gram size of CNN
 
 
 def train(train_iter, dev_iter, optimizer, epochs, clip, patience):
-    best_acc = -1
+    best_dev_f1 = -1
     patience_counter = 0
-    for epoch in trange(epochs):
+    for epoch in range(epochs):
         model.train()
         total_loss = 0
         for i, batch in enumerate(tqdm(train_iter)):
@@ -58,18 +58,20 @@ def train(train_iter, dev_iter, optimizer, epochs, clip, patience):
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
 
-        acc = eval(dev_iter, "Dev", epoch)
-        if acc < best_acc:
+        dev_f1 = eval(dev_iter, "Dev", epoch)
+        if dev_f1 < best_dev_f1:
             patience_counter += 1
         else:
-            best_acc = acc
+            best_dev_f1 = dev_f1
             patience_counter = 0
-
+            torch.save(model.state_dict(), 'best_model.ckpt')
         if patience_counter >= patience:
             tqdm.write("Early stopping: patience limit reached, stopping...")
             break
 
-def eval(data_iter, name, epoch=None):
+def eval(data_iter, name, epoch=None, use_cache=False):
+    if use_cache:
+        model.load_state_dict(torch.load('params.ckpt'))
     model.eval()
     with torch.no_grad():
         total_loss = 0
@@ -122,6 +124,7 @@ def predict(data_iter):
 
 
 def write_predicted_labels(output_file, orig_text, id2label, gold_seq, predicted_seq):
+    pad_idx = WORD.vocab.stoi[WORD.pad_token]
     with codecs.open(output_file, 'w', encoding='utf-8') as writer:
         for text, predict, gold in zip(orig_text, predicted_seq, gold_seq):
             for token, p_id, g_id in zip(text.split(), predict, gold):
@@ -133,7 +136,6 @@ def write_predicted_labels(output_file, orig_text, id2label, gold_seq, predicted
 
 if __name__ == "__main__":
     train_iter, dev_iter, test_iter, WORD, CHAR, LABEL = load_iters(BATCH_SIZE, device, data_path, vectors, LOWER_CASE)
-    pad_idx = WORD.vocab.stoi[WORD.pad_token]
 
     model = NER_Model(len(WORD.vocab), WORD_EMBEDDING_SIZE,
                       len(CHAR.vocab), CHAR_EMBEDDING_SIZE,
@@ -142,5 +144,5 @@ if __name__ == "__main__":
 
     optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM)
     train(train_iter, dev_iter, optimizer, EPOCHS, CLIP, PATIENCE)
-    eval(test_iter, "Test")
+    eval(test_iter, "Test", use_cache=True)
     predict(test_iter)
