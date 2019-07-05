@@ -6,6 +6,7 @@ import torch.nn.functional as F
 class BiLSTM(nn.Module):
     def __init__(self, input_size, hidden_size=128, dropout_rate=0.1, layer_num=1):
         super(BiLSTM, self).__init__()
+        self.hidden_size = hidden_size
         if layer_num == 1:
             self.bilstm = nn.LSTM(input_size, hidden_size // 2, layer_num, batch_first=True, bidirectional=True)
 
