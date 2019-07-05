@@ -70,7 +70,7 @@ test data accuracy: 0.83
 
 |embedding|entity-level F1|paper result|
 |----|------|---| 
-|random|80.5|80.76|
+|random (uniform)|80.9|80.76|
 |glove 100|84.7|91.21|
 
 从实验结果看，用`glove`并没有论文中的提升的那么多。

@@ -1,7 +1,7 @@
 # -*- coding:utf8 -*-
 import torch
 import torch.optim as optim
-from tqdm import tqdm, trange
+from tqdm import tqdm
 from torchtext.vocab import Vectors
 from models import NER_Model
 import codecs
@@ -11,8 +11,8 @@ torch.manual_seed(1)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 data_path = "data"
-vectors = None
-# vectors = Vectors('glove.6B.100d.txt', '/home/yjc/embeddings')
+# vectors = None
+vectors = Vectors('glove.6B.100d.txt', '/home/yjc/embeddings')
 FREEZE = False
 BATCH_SIZE = 10
 LOWER_CASE = False
@@ -71,7 +71,7 @@ def train(train_iter, dev_iter, optimizer, epochs, clip, patience):
 
 def eval(data_iter, name, epoch=None, use_cache=False):
     if use_cache:
-        model.load_state_dict(torch.load('params.ckpt'))
+        model.load_state_dict(torch.load('best_model.ckpt'))
     model.eval()
     with torch.no_grad():
         total_loss = 0
