@@ -31,7 +31,10 @@ def show_example(premise, hypothesis, label, TEXT, LABEL):
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-def eval(data_iter, name, epoch=None):
+
+def eval(data_iter, name, epoch=None, use_cache=False):
+    if use_cache:
+        model.load_state_dict(torch.load('best_model.ckpt'))
     model.eval()
     correct_num = 0
     err_num = 0
@@ -61,7 +64,7 @@ def eval(data_iter, name, epoch=None):
 def train(train_iter, dev_iter, loss_func, optimizer, epochs, patience=5, clip=5):
     best_acc = -1
     patience_counter = 0
-    for epoch in trange(epochs):
+    for epoch in range(epochs):
         model.train()
         total_loss = 0
         for batch in tqdm(train_iter):
@@ -85,7 +88,7 @@ def train(train_iter, dev_iter, loss_func, optimizer, epochs, patience=5, clip=5
         else:
             best_acc = acc
             patience_counter = 0
-
+            torch.save(model.state_dict(), 'best_model.ckpt')
         if patience_counter >= patience:
             tqdm.write("Early stopping: patience limit reached, stopping...")
             break
@@ -103,4 +106,4 @@ if __name__ == "__main__":
     loss_func = nn.CrossEntropyLoss()
 
     train(train_iter, dev_iter, loss_func, optimizer, EPOCHS,PATIENCE, CLIP)
-    eval(test_iter, "Test")
+    eval(test_iter, "Test", True)
