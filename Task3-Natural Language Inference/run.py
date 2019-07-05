@@ -106,4 +106,4 @@ if __name__ == "__main__":
     loss_func = nn.CrossEntropyLoss()
 
     train(train_iter, dev_iter, loss_func, optimizer, EPOCHS,PATIENCE, CLIP)
-    eval(test_iter, "Test", True)
+    eval(test_iter, "Test", use_cache=True)
