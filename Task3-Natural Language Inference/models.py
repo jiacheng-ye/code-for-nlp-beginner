@@ -19,7 +19,7 @@ class BiLSTM(nn.Module):
         for p in self.bilstm.parameters():
             if p.dim() > 1:
                 nn.init.normal_(p)
-                p *= 0.01
+                p.data.mul_(0.01)
             else:
                 p.data.zero_()
                 # This is the range of indices for our forget gates for each LSTM cell
@@ -64,12 +64,12 @@ class ESIM(nn.Module):
     def init_weight(self):
         if self.pretrained_embed is None:
             nn.init.normal_(self.word_embed.weight)
-            self.word_embed.weight *= 0.01
+            self.word_embed.weight.weight.mul_(0.01)
 
         for p in self.bilstm.parameters():
             if p.dim() > 1:
                 nn.init.normal_(p)
-                self.word_embed.weight *= 0.01
+                self.word_embed.weight.mul_(0.01)
             else:
                 p.data.zero_()
 
