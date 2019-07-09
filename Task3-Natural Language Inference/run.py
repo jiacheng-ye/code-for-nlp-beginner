@@ -9,7 +9,7 @@ torch.manual_seed(1)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 BATCH_SIZE = 32
-HIDDEN_SIZE = 300
+HIDDEN_SIZE = 600  # every LSTM's(forward and backward) hidden size is half of HIDDEN_SIZE
 EPOCHS = 20
 DROPOUT_RATE = 0.5
 LAYER_NUM = 1
