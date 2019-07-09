@@ -19,7 +19,7 @@ class BiLSTM(nn.Module):
         for p in self.bilstm.parameters():
             if p.dim() > 1:
                 nn.init.normal_(p)
-                self.word_embed.weight *= 0.01
+                p *= 0.01
             else:
                 p.data.zero_()
                 # This is the range of indices for our forget gates for each LSTM cell
