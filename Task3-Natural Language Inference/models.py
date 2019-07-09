@@ -65,13 +65,13 @@ class ESIM(nn.Module):
         if self.pretrained_embed is None:
             nn.init.normal_(self.word_embed.weight)
             self.word_embed.weight.weight.mul_(0.01)
+        nn.init.normal_(self.fc1.weight)
+        self.fc1.weight.mul_(0.01)
+        nn.init.normal_(self.fc2.weight)
+        self.fc2.weight.mul_(0.01)
+        nn.init.normal_(self.fc3.weight)
+        self.fc3.weight.mul_(0.01)
 
-        for p in self.bilstm.parameters():
-            if p.dim() > 1:
-                nn.init.normal_(p)
-                self.word_embed.weight.mul_(0.01)
-            else:
-                p.data.zero_()
 
     def soft_align_attention(self, x1, x1_lens, x2, x2_lens):
         '''
