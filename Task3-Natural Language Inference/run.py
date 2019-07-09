@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchtext.vocab import Vectors
 from models import ESIM
-from tqdm import tqdm, trange
+from tqdm import tqdm
 torch.manual_seed(1)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -18,7 +18,7 @@ PATIENCE = 5
 CLIP = 10
 EMBEDDING_SIZE = 300
 # vectors = None
-vectors = Vectors('glove.6B.300d.txt', '/home/yjc/embeddings')
+vectors = Vectors('glove.840B.300d.txt', '/home/yjc/embeddings')
 freeze = False
 data_path = 'data'
 
@@ -96,10 +96,9 @@ def train(train_iter, dev_iter, loss_func, optimizer, epochs, patience=5, clip=5
 if __name__ == "__main__":
     train_iter, dev_iter, test_iter, TEXT, LABEL, _ = load_iters(BATCH_SIZE, device, data_path, vectors)
 
-    model = ESIM(len(TEXT.vocab), len(LABEL.vocab.stoi), EMBEDDING_SIZE, HIDDEN_SIZE, DROPOUT_RATE, LAYER_NUM)
-    if vectors is not None:
-        model.embed.from_pretrained(TEXT.vocab.vectors, freeze=freeze)
-    model.to(device)
+    model = ESIM(len(TEXT.vocab), len(LABEL.vocab.stoi),
+                 EMBEDDING_SIZE, HIDDEN_SIZE, DROPOUT_RATE, LAYER_NUM,
+                 TEXT.vocab.vectors, freeze).to(device)
     print(f'The model has {count_parameters(model):,} trainable parameters')
 
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)

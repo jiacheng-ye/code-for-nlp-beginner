@@ -18,7 +18,8 @@ class BiLSTM(nn.Module):
     def init_weights(self):
         for p in self.bilstm.parameters():
             if p.dim() > 1:
-                nn.init.xavier_normal_(p)
+                nn.init.normal_(p)
+                self.word_embed.weight *= 0.01
             else:
                 p.data.zero_()
                 # This is the range of indices for our forget gates for each LSTM cell
@@ -43,15 +44,34 @@ class BiLSTM(nn.Module):
 
 
 class ESIM(nn.Module):
-    def __init__(self, vocab_size, num_labels, embed_size, hidden_size, dropout_rate=0.1, layer_num=1):
+    def __init__(self, vocab_size, num_labels, embed_size, hidden_size, dropout_rate=0.1, layer_num=1,
+                 pretrained_embed=None, freeze=False):
         super(ESIM, self).__init__()
-        self.embed = nn.Embedding(vocab_size, embed_size)
+        self.pretrained_embed = pretrained_embed
+        if pretrained_embed is not None:
+            self.word_embed = nn.Embedding.from_pretrained(pretrained_embed, freeze)
+        else:
+            self.word_embed = nn.Embedding(vocab_size, embed_size)
         self.bilstm1 = BiLSTM(embed_size, hidden_size, dropout_rate, layer_num)
         self.bilstm2 = BiLSTM(hidden_size, hidden_size, dropout_rate, layer_num)
         self.fc1 = nn.Linear(4 * hidden_size, hidden_size)
         self.fc2 = nn.Linear(4 * hidden_size, hidden_size)
         self.fc3 = nn.Linear(hidden_size, num_labels)
         self.dropout = nn.Dropout(dropout_rate)
+
+        self.init_weight()
+
+    def init_weight(self):
+        if self.pretrained_embed is None:
+            nn.init.normal_(self.word_embed.weight)
+            self.word_embed.weight *= 0.01
+
+        for p in self.bilstm.parameters():
+            if p.dim() > 1:
+                nn.init.normal_(p)
+                self.word_embed.weight *= 0.01
+            else:
+                p.data.zero_()
 
     def soft_align_attention(self, x1, x1_lens, x2, x2_lens):
         '''
@@ -82,7 +102,7 @@ class ESIM(nn.Module):
 
     def composition(self, x, lens):
         x = F.relu(self.fc1(x))
-        x_compose = self.bilstm2(x, lens)  # (batch, seq_len, hidden_size)
+        x_compose = self.bilstm2(self.dropout(x), lens)  # (batch, seq_len, hidden_size)
         p1 = F.avg_pool1d(x_compose.transpose(1, 2), x.size(1)).squeeze(-1)  # (batch, hidden_size)
         p2 = F.max_pool1d(x_compose.transpose(1, 2), x.size(1)).squeeze(-1)  # (batch, hidden_size)
         return torch.cat([p1, p2], 1)  # (batch, hidden_size*2)
@@ -98,8 +118,8 @@ class ESIM(nn.Module):
         # Input encoding
         embed1 = self.embed(x1)  # (batch, seq1_len, embed_size)
         embed2 = self.embed(x2)  # (batch, seq2_len, embed_size)
-        new_embed1 = self.bilstm1(embed1, x1_lens)  # (batch, seq1_len, hidden_size)
-        new_embed2 = self.bilstm1(embed2, x2_lens)  # (batch, seq2_len, hidden_size)
+        new_embed1 = self.bilstm1(self.dropout(embed1), x1_lens)  # (batch, seq1_len, hidden_size)
+        new_embed2 = self.bilstm1(self.dropout(embed2), x2_lens)  # (batch, seq2_len, hidden_size)
 
         # Local inference collected over sequence
         x1_align, x2_align = self.soft_align_attention(new_embed1, x1_lens, new_embed2, x2_lens)
