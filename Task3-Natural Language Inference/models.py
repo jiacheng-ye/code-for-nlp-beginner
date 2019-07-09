@@ -49,9 +49,9 @@ class ESIM(nn.Module):
         super(ESIM, self).__init__()
         self.pretrained_embed = pretrained_embed
         if pretrained_embed is not None:
-            self.word_embed = nn.Embedding.from_pretrained(pretrained_embed, freeze)
+            self.embed = nn.Embedding.from_pretrained(pretrained_embed, freeze)
         else:
-            self.word_embed = nn.Embedding(vocab_size, embed_size)
+            self.embed = nn.Embedding(vocab_size, embed_size)
         self.bilstm1 = BiLSTM(embed_size, hidden_size, dropout_rate, layer_num)
         self.bilstm2 = BiLSTM(hidden_size, hidden_size, dropout_rate, layer_num)
         self.fc1 = nn.Linear(4 * hidden_size, hidden_size)
@@ -63,14 +63,14 @@ class ESIM(nn.Module):
 
     def init_weight(self):
         if self.pretrained_embed is None:
-            nn.init.normal_(self.word_embed.weight)
-            self.word_embed.weight.weight.mul_(0.01)
+            nn.init.normal_(self.embed.weight)
+            self.embed.weight.data.mul_(0.01)
         nn.init.normal_(self.fc1.weight)
-        self.fc1.weight.mul_(0.01)
+        self.fc1.weight.data.mul_(0.01)
         nn.init.normal_(self.fc2.weight)
-        self.fc2.weight.mul_(0.01)
+        self.fc2.weight.data.mul_(0.01)
         nn.init.normal_(self.fc3.weight)
-        self.fc3.weight.mul_(0.01)
+        self.fc3.weight.data.mul_(0.01)
 
 
     def soft_align_attention(self, x1, x1_lens, x2, x2_lens):
