@@ -106,9 +106,9 @@ def get_minibatches(data, minibatch_size, shuffle=True):
     """
     list_data = type(data) is list and (type(data[0]) is list or type(data[0]) in [np.ndarray, csr_matrix])
     if list_data:
-        data_size = data[0].shape[0] if type(data[0]) is csr_matrix else len(data[0])
+        data_size = data[0].shape[0] if type(data[0]) in [np.ndarray, csr_matrix] else len(data[0])
     else:
-        data_size = data[0].shape[0] if type(data) is csr_matrix else len(data)
+        data_size = data[0].shape[0] if type(data) in [np.ndarray, csr_matrix] else len(data)
     indices = np.arange(data_size)
     if shuffle:
         np.random.shuffle(indices)
