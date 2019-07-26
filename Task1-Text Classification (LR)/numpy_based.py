@@ -13,6 +13,7 @@ data_path = "data"
 regularization = "l1"
 C = 0.8
 
+
 class Ngram():
     def __init__(self, n_grams, max_tf=0.8):
         ''' n_grams: tuple, n_gram range'''
@@ -75,7 +76,7 @@ def train_test_split(X, Y, shuffle=True):
 
 
 def minibatch(data, minibatch_idx):
-    return data[minibatch_idx] if type(data) is np.ndarray else [data[i] for i in minibatch_idx]
+    return data[minibatch_idx] if type(data) in [np.ndarray, csr_matrix] else [data[i] for i in minibatch_idx]
 
 
 def get_minibatches(data, minibatch_size, shuffle=True):
@@ -103,8 +104,11 @@ def get_minibatches(data, minibatch_size, shuffle=True):
               list. This can be used to iterate through multiple data sources
               (e.g., features and labels) at the same time.
     """
-    list_data = type(data) is list and (type(data[0]) is list or type(data[0]) is np.ndarray)
-    data_size = len(data[0]) if list_data else len(data)
+    list_data = type(data) is list and (type(data[0]) is list or type(data[0]) in [np.ndarray, csr_matrix])
+    if list_data:
+        data_size = data[0].shape[0] if type(data[0]) is csr_matrix else len(data[0])
+    else:
+        data_size = data[0].shape[0] if type(data) is csr_matrix else len(data)
     indices = np.arange(data_size)
     if shuffle:
         np.random.shuffle(indices)
@@ -142,14 +146,14 @@ if __name__ == "__main__":
     # # Method2: stochastic gradient descent
     # for epoch in range(train_epochs):
     #     for batch_X, batch_Y in get_minibatches([train_X, train_Y], 1, True):
-    #         lr.gd(train_X, train_Y)
+    #         lr.gd(batch_X, batch_Y)
     #     predict_dev_Y = lr.predict(dev_X)
     #     print("Epoch %s, Dev Acc %.3f" % (epoch, (predict_dev_Y == dev_Y).sum() / len(dev_Y)))
 
     # Method3: mini-batch gradient descent
     for epoch in range(train_epochs):
         for batch_X, batch_Y in get_minibatches([train_X, train_Y], batch_size, True):
-            lr.gd(train_X, train_Y)
+            lr.gd(batch_X, batch_Y)
         predict_dev_Y = lr.predict(dev_X)
         print("Epoch %s, Dev Acc %.3f" % (epoch, (predict_dev_Y == dev_Y).sum() / len(dev_Y)))
 
