@@ -20,7 +20,7 @@
 数据集地址：[Classify the sentiment of sentences from the Rotten Tomatoes dataset](https://www.kaggle.com/c/sentiment-analysis-on-movie-reviews)
 
 1. 老老实实一步步写分词、构建词典、数据向量化、加载词向量等；
-2. 用`pytorch`写`RNN`、`BiRNN`以及`TextCNN`；
+2. 用`pytorch`写`RNN`, `GRU`, `LSTM`以及`TextCNN`，其中自己编写的`RNN`, `GRU`, `LSTM`模型已经测试与`pytorch`内部`nn.xxx`一致。
 3. 用`torchtext`简化数据的处理操作；
 
     |方法|参数|准确度|
