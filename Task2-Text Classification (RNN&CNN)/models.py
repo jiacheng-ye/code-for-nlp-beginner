@@ -257,13 +257,12 @@ class RNN(nn.Module):
     def init_weights(self):
         std = 1.0 / math.sqrt(self.hidden_size)
         for w in self.parameters():
-            # w.data.uniform_(-std, std)
-            nn.init.constant_(w.data, 0.01)
+            w.data.uniform_(-std, std)
 
     def forward(self, x, lens):
         embeddings = self.embed(x)
         output, _ = self.rnn(embeddings)
-        # # get the output specified by length
+        # get the output specified by length
         real_output = output[range(len(lens)), lens - 1]  # (batch_size, seq_length, hidden_size*num_directions)
         out = self.fc(self.dropout(real_output))
         return out
