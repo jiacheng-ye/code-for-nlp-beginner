@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 
-
 class RNNCell(nn.Module):
     def __init__(self, input_size, hidden_size):
         super(RNNCell, self).__init__()
@@ -99,7 +98,8 @@ class LSTMCell(nn.Module):
 
 
 class RNNModel(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, bidirectional=False, mode="RNN"):
+    def __init__(self, input_size, hidden_size, num_layers, bidirectional=False, batch_first=True, dropout=0.,
+                 mode="RNN"):
         super(RNNModel, self).__init__()
 
         self.bidirectional = bidirectional
@@ -107,6 +107,8 @@ class RNNModel(nn.Module):
         self.num_layers = num_layers
         self.num_directions = num_directions = 2 if bidirectional else 1
         self.mode = mode
+        self.batch_first = batch_first
+        self.dropout = nn.Dropout(dropout)
         self.cells = cells = []
         if mode == "RNN":
             cell_cls = RNNCell
@@ -125,8 +127,8 @@ class RNNModel(nn.Module):
     def forward(self, x):
         '''
 
-        :param x: [batch_size, max_seq_length, input_size]
-        :return: output: [batch, seq_len, num_directions * hidden_size]
+        :param x: [batch_size, max_seq_length, input_size] if batch_first is True
+        :return: output: [batch, seq_len, num_directions * hidden_size] if batch_first is True
                  hidden: [num_layers * num_directions, batch, hidden_size] if mode is "RNN" or "GRU", if mode is "LSTM",
                          hidden will be (h_n, c_n), each size is [num_layers * num_directions, batch, hidden_size].
 
@@ -137,7 +139,11 @@ class RNNModel(nn.Module):
         outs = []
         hiddens = []
         for layer in range(self.num_layers):
-            inputs = x.transpose(0, 1) if layer == 0 else outs  # [max_seq_length, batch_size, layer_input_size]
+            if self.batch_first:
+                inputs = x.transpose(0, 1) if layer == 0 else self.dropout(
+                    outs)  # [max_seq_length, batch_size, layer_input_size]
+            else:
+                inputs = x if layer == 0 else self.dropout(outs)  # [max_seq_length, batch_size, layer_input_size]
             layer_outs_with_directions = []
             for direction in range(self.num_directions):
                 idx = layer * self.num_directions + direction
@@ -159,7 +165,10 @@ class RNNModel(nn.Module):
                 hiddens.append(layer_hn)
             outs = torch.cat(layer_outs_with_directions, -1)  # [max_seq_len, batch_size, 2*hidden_size]
 
-        output = outs.transpose(0, 1)
+        if self.batch_first:
+            output = outs.transpose(0, 1)
+        else:
+            output = outs
         if self.mode == 'LSTM':
             hidden = (torch.stack([h[0] for h in hiddens]), torch.stack([h[1] for h in hiddens]))
         else:
@@ -170,60 +179,77 @@ class RNNModel(nn.Module):
 
 def test_RNN_Model():
     input_size, hidden_size, num_layers, bidirectional = 50, 100, 2, True
-    torch.manual_seed(1)
-    x = torch.randn([20, 15, 50])
+    dropout = 0.1
 
-    mymodel = RNNModel(input_size, hidden_size, num_layers, bidirectional)
+    x = torch.randn([20, 15, 50])
+    mymodel = RNNModel(input_size, hidden_size, num_layers, bidirectional=bidirectional, batch_first=True,
+                       dropout=dropout,
+                       mode="RNN")
     for cell in mymodel.cells:
         for w in cell.parameters():
             nn.init.constant_(w.data, 0.01)
 
-    model = nn.RNN(input_size, hidden_size, num_layers, bidirectional=bidirectional, batch_first=True)
+    model = nn.RNN(input_size, hidden_size, num_layers, bidirectional=bidirectional, batch_first=True, dropout=dropout)
     for w in model.parameters():
         nn.init.constant_(w.data, 0.01)
 
+    torch.manual_seed(1)
     outs, hidden = model(x)
+    torch.manual_seed(1)
     myouts, myhidden = mymodel(x)
+
     assert (hidden != myhidden).sum().item() == 0, "hidden don't match, RNNcell maybe wrong!"
     assert (outs != myouts).sum().item() == 0, "outs don't match, RNNcell maybe wrong!"
 
 
 def test_GRU_Model():
     input_size, hidden_size, num_layers, bidirectional = 50, 100, 2, True
+    dropout = 0.1
     torch.manual_seed(1)
     x = torch.randn([20, 15, 50])
 
-    mymodel = RNNModel(input_size, hidden_size, num_layers, bidirectional, "GRU")
+    mymodel = RNNModel(input_size, hidden_size, num_layers, bidirectional=bidirectional, batch_first=True,
+                       dropout=dropout,
+                       mode="GRU")
     for cell in mymodel.cells:
         for w in cell.parameters():
             nn.init.constant_(w.data, 0.01)
 
-    model = nn.GRU(input_size, hidden_size, num_layers, bidirectional=bidirectional, batch_first=True)
+    model = nn.GRU(input_size, hidden_size, num_layers, bidirectional=bidirectional, batch_first=True, dropout=dropout)
     for w in model.parameters():
         nn.init.constant_(w.data, 0.01)
 
+    torch.manual_seed(1)
     outs, hidden = model(x)
+    torch.manual_seed(1)
     myouts, myhidden = mymodel(x)
+
     assert (hidden != myhidden).sum().item() == 0, "hidden don't match, GRUcell maybe wrong!"
     assert (outs != myouts).sum().item() == 0, "outs don't match, GRUcell maybe wrong!"
 
 
 def test_LSTM_Model():
     input_size, hidden_size, num_layers, bidirectional = 50, 100, 2, True
-    torch.manual_seed(1)
+    dropout = 0.1
+
     x = torch.randn([20, 15, 50])
 
-    mymodel = RNNModel(input_size, hidden_size, num_layers, bidirectional, "LSTM")
+    mymodel = RNNModel(input_size, hidden_size, num_layers, bidirectional=bidirectional, batch_first=True,
+                       dropout=dropout,
+                       mode="LSTM")
     for cell in mymodel.cells:
         for w in cell.parameters():
             nn.init.constant_(w.data, 0.01)
 
-    model = nn.LSTM(input_size, hidden_size, num_layers, bidirectional=bidirectional, batch_first=True)
+    model = nn.LSTM(input_size, hidden_size, num_layers, bidirectional=bidirectional, batch_first=True, dropout=dropout)
     for w in model.parameters():
         nn.init.constant_(w.data, 0.01)
 
+    torch.manual_seed(1)
     outs, (h_n, c_n) = model(x)
+    torch.manual_seed(1)
     myouts, (myh_n, myc_n) = mymodel(x)
+
     assert (h_n != myh_n).sum().item() == 0, "h_n don't match, LSTMcell maybe wrong!"
     assert (c_n != myc_n).sum().item() == 0, "c_n don't match, LSTMcell maybe wrong!"
     assert (outs != myouts).sum().item() == 0, "outs don't match, LSTMcell maybe wrong!"
@@ -234,7 +260,6 @@ def test():
     test_GRU_Model()
     test_LSTM_Model()
 
-
 class RNN(nn.Module):
     def __init__(self, vocab_size, embed_size, hidden_size, num_layers, num_classes, bidirectional=True,
                  dropout_rate=0.3):
@@ -244,7 +269,7 @@ class RNN(nn.Module):
 
         self.embed = nn.Embedding(vocab_size, embed_size)
         # self.rnn = nn.RNN(embed_size, hidden_size, num_layers, batch_first=True, bidirectional=bidirectional)
-        self.rnn = RNNModel(embed_size, hidden_size, num_layers, bidirectional=bidirectional)
+        self.rnn = RNNModel(embed_size, hidden_size, num_layers, batch_first=True, bidirectional=bidirectional)
         self.bidirectional = bidirectional
         if not bidirectional:
             self.fc = nn.Linear(hidden_size, num_classes)
