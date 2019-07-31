@@ -109,7 +109,7 @@ class RNNModel(nn.Module):
         self.mode = mode
         self.batch_first = batch_first
         self.dropout = nn.Dropout(dropout)
-        self.cells = cells = []
+        self.cells = cells = nn.ModuleList()
         if mode == "RNN":
             cell_cls = RNNCell
         elif mode == "GRU":
