@@ -65,7 +65,7 @@ class SoftmaxDecoder(nn.Module):
         self.linear = torch.nn.Linear(input_dim, label_size)
         self.init_weights()
 
-    def init_weight(self):
+    def init_weights(self):
         bias = math.sqrt(6 / (self.linear.weight.size(0) + self.linear.weight.size(1)))
         nn.init.uniform_(self.linear.weight, -bias, bias)
 
@@ -99,16 +99,16 @@ class CRFDecoder(nn.Module):
         self.crf = CRF(label_size + 2)
         self.label_size = label_size
 
-        self.init_weight()
+        self.init_weights()
 
-    def init_weight(self):
+    def init_weights(self):
         bias = math.sqrt(6 / (self.linear.weight.size(0) + self.linear.weight.size(1)))
         nn.init.uniform_(self.linear.weight, -bias, bias)
 
     def forward_model(self, inputs):
         batch_size, seq_len, input_dim = inputs.size()
         output = inputs.contiguous().view(-1, self.input_dim)
-        output = self.linear.forward(output)
+        output = self.linear(output)
         output = output.view(batch_size, seq_len, self.label_size)
         return output
 
@@ -137,38 +137,31 @@ class CRFDecoder(nn.Module):
 
 
 class NER_Model(nn.Module):
-    def __init__(self, word_vocab_size, word_embed_size, char_vocab_size, char_embed_size,
-                 num_labels, hidden_size, dropout_rate=0.5,
-                 lstm_layer_num=1, kernel_step=3, char_out_size=100, use_char=True,
-                 pretrained_embed=None, freeze=False):
+    def __init__(self, word_embed, char_embed,
+                 num_labels, hidden_size, dropout_rate=(0.33, 0.5, (0.33, 0.5)),
+                 lstm_layer_num=1, kernel_step=3, char_out_size=100, use_char=False,
+                 freeze=False, use_crf=True):
         super(NER_Model, self).__init__()
-        self.char_embed_size = char_embed_size
-        self.pretrained_embed = pretrained_embed
-        if pretrained_embed is not None:
-            self.word_embed = nn.Embedding.from_pretrained(pretrained_embed, freeze)
-        else:
-            self.word_embed = nn.Embedding(word_vocab_size, word_embed_size)
+        self.word_embed = nn.Embedding.from_pretrained(word_embed, freeze)
+        self.word_embed_size = word_embed.size(-1)
         self.use_char = use_char
         if use_char:
-            self.char_embed = nn.Embedding(char_vocab_size, char_embed_size)
-            self.charcnn = CharCNN(char_out_size, (kernel_step, char_embed_size), (2, 0))
-            self.bilstm = BiLSTM(char_out_size + word_embed_size, hidden_size, dropout_rate, lstm_layer_num)
+            self.char_embed = nn.Embedding.from_pretrained(char_embed, freeze)
+            self.char_embed_size = char_embed.size(-1)
+            self.charcnn = CharCNN(char_out_size, (kernel_step, self.char_embed_size), (2, 0))
+            self.bilstm = BiLSTM(char_out_size + self.word_embed_size, hidden_size, dropout_rate[2][1], lstm_layer_num)
         else:
-            self.bilstm = BiLSTM(word_embed_size, hidden_size, dropout_rate, lstm_layer_num)
-        self.decoder = CRFDecoder(num_labels, hidden_size)
-        # self.decoder = SoftmaxDecoder(num_labels, hidden_size)
-        self.dropout = nn.Dropout(dropout_rate)
+            self.bilstm = BiLSTM(self.word_embed_size, hidden_size, dropout_rate[2][1], lstm_layer_num)
 
-    def init_weight(self):
-        if self.pretrained_embed is None:
-            bias = math.sqrt(3.0 / self.word_embed.weight.size(1))
-            nn.init.uniform_(self.word_embed.weight, -bias, bias)
-        if self.use_char:
-            bias = math.sqrt(3.0 / self.char_embed.weight.size(1))
-            nn.init.uniform_(self.char_embed.weight, -bias, bias)
+        self.embed_dropout = nn.Dropout(dropout_rate[0])
+        self.out_dropout = nn.Dropout(dropout_rate[1])
+        self.rnn_in_dropout = nn.Dropout(dropout_rate[2][0])
 
-        bias = math.sqrt(6.0 / (self.linear.weight.size(0) + self.linear.weight.size(1)))
-        nn.init.uniform_(self.linear.weight, -bias, bias)
+        if use_crf:
+            self.decoder = CRFDecoder(num_labels, hidden_size)
+        else:
+            self.decoder = SoftmaxDecoder(num_labels, hidden_size)
+
 
     def forward(self, word_ids, char_ids, lens, label_ids=None):
         '''
@@ -181,15 +174,17 @@ class NER_Model(nn.Module):
                  else return loss (scalar).
         '''
         word_embed = self.word_embed(word_ids)
-        if self.use_char:
+        if self.char_embed:
             # reshape char_embed and apply to CNN
             char_embed = self.char_embed(char_ids).reshape(-1, char_ids.size(-1), self.char_embed_size).unsqueeze(1)
-            char_embed = self.charcnn(self.dropout(char_embed))
+            char_embed = self.embed_dropout(
+                char_embed)  # a dropout layer applied before character embeddings are input to CNN.
+            char_embed = self.charcnn(char_embed)
             char_embed = char_embed.reshape(char_ids.size(0), char_ids.size(1), -1)
             embed = torch.cat([word_embed, char_embed], -1)
         else:
             embed = word_embed
-        x = self.dropout(embed)
+        x = self.rnn_in_dropout(embed)
         hidden = self.bilstm(x, lens)  # (batch_size, max_seq_len, hidden_size)
-        hidden = torch.tanh(self.dropout(hidden))
+        hidden = self.out_dropout(hidden)
         return self.decoder(hidden, lens, label_ids)

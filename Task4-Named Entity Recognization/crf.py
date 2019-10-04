@@ -15,6 +15,7 @@ class CRF(nn.Module):
         self.initialize()
 
     def initialize(self):
+        nn.init.uniform_(self.transition.data, -0.1, 0.1)
         self.transition.data[:, self.end] = -1000.0
         self.transition.data[self.start, :] = -1000.0
 

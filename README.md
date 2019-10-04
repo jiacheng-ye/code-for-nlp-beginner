@@ -64,18 +64,19 @@
 
 采用`CNN+BiLSTM+CRF`结构，复现论文[`End-to-end Sequence Labeling via Bi-directional LSTM-CNNs-CRF`](https://arxiv.org/pdf/1603.01354.pdf)
 
-1. 数据采用`BIOES`结构，用`bio2bioes.py`进行转换。
-2. 关于预处理，将数字都变为0；
-2. 关于初始化，论文里有详细的设置，注意的是`LSTM`里面的`forget gate`的 `bias`初始为1，因为开始的时候记忆准确度不高。
-3. 关于`dropout`,`LSTM`的输入和输出的时候都加`dropout`；字符`embedding`进入`CNN`前也要`dropout`。
-4. 关于优化器，论文是采用了`SGD`，每个epoch都对学习率进行调整，注意这里不能用`pytorch`的`SGD`中的`weight decay`，因为它是对权重的衰减（L2正则），而我们要的是对学习率进行衰减。
+- 数据采用`BIOES`结构，用`bio2bioes.py`进行转换。
+- 关于预处理，将数字都变为0；
+- 设置预训练`embedding`的时候需注意模糊匹配（大小写）；
+- 设置`vocab`的时候使要用到`train`以及`dev`+`test`中出现在`embedding`中的词；
+- 关于初始化，论文里有详细的设置，注意的是`LSTM`里面的`forget gate`的 `bias`初始为1，因为开始的时候记忆准确度不高。
+- 关于`dropout`,`LSTM`的输入和输出的时候都加`dropout`；字符`embedding`进入`CNN`前也要`dropout`。
+- 关于优化器，论文是采用了`SGD`，每个epoch都对学习率进行调整，注意这里不能用`pytorch`的`SGD`中的`weight decay`，因为它是对权重的衰减（L2正则），而我们要的是对学习率进行衰减。
 
 |embedding|entity-level F1|paper result|
 |----|------|---| 
-|random (uniform)|80.9|80.76|
-|glove 100|84.7|91.21|
+|random (uniform)|83.18|80.76|
+|glove 100|90.7|91.21|
 
-从实验结果看，用`glove`并没有论文中的提升的那么多。
 
 注意点：使用`torchtext`进行文本处理，需注意要由于`torchtext`只能处理`tsv/csv/json`格式的文本，这里需要自己
 从文本读取的句子，也要自定义`Dataset`，`make Example`时的两种表现形式：
